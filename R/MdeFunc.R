@@ -1,19 +1,23 @@
-#' Performs minimum distance estimation in linear regression model: Y=Xb + error
-#'@param Y - Response variable in linear regression model
-#'@param X - Explanatory variable in linear regression model
-#'@return Returns betahat - Minimum distance estimator of b 
+#' Performs minimum distance estimation in linear regression model: Y=Xb + error.
+#'@param Y - Vecotor of response variable in linear regression model.
+#'@param X - Design matrix of explanatory variable in linear regression model.
+#'@param D - Weight Matrix. Dimesion of D should match that of X. Default value is X*A where A=(X'*X)^(-1/2).
+#'@param IntMeasure - Measure used in integration. It should be either Lebesgue or degenerate. 
+#'@return betahat - Minimum distance estimator of b. 
+#'@return residual - Residuals after minimum distance estimation. 
 #'@examples
 #'####################
 #'n <- 10
 #'p <- 3
-#'X <- matrix(rnorm(n*p, 5,3), nrow=n, ncol=p)  #### Generate n-by-p design matrix X 
-#'beta <- c(-2, 0.3, 1.5)                       #### Generate true beta = (-2, 0.3, 1.5)' 
-#'eps <- rnorm(n, 0,1)                          #### Generate errors from N(0,1)
+#'X <- matrix(rnorm(n*p, 5,3), nrow=n, ncol=p)   #### Generate n-by-p design matrix X 
+#'beta <- c(-2, 0.3, 1.5)                        #### Generate true beta = (-2, 0.3, 1.5)' 
+#'eps <- rnorm(n, 0,1)                           #### Generate errors from N(0,1)
 #'Y <- X%*%beta + eps
 #'#####################
-#'
-#'betahat <- KoulLrMde(Y,X)                     ##### Obtain minimum distance estimator betahat 
-
+#'D = "default"                                  #### Use the default weight matrix 
+#'KM <- KoulLrMde(Y,X,D,"Lebesgue")              ##### Use Lebesgue measure for integration
+#'betahat <- KoulLrMde(Y,X,D,"Lebesgue")$betahat ##### Obtain minimum distance estimator 
+#'resid <- KoulLrMde(Y,X,D,"Lebesgue")$residual  ##### Obtain residual 
 
 
 #'@references
@@ -25,63 +29,187 @@
 #'@seealso KoulArMde()
 #'@export
 #'@importFrom "stats" "optim"
+#'@importFrom "stats" "nlm"
 
 
 
-
-KoulLrMde <- function(Y, X){
+KoulLrMde <- function(Y, X, D, IntMeasure){
   
-  DimMat <- dim(X)
-  LengY <- length(Y)  
-  if (is.null(DimMat) == TRUE ){
-    message("X should be a matrix")
-    stop		
-  }else{
+  if(nargs() != 4){
+    message("Number of arguments should be four.")
+    stop()
+  }
+  Hx = IntMeasure
+  if( (Hx != "Lebesgue") && (Hx != "Degenerate")){
+    message("Intergrating measure Hx should be either Lebesgue or Degenerate.")
+    stop()
+  }
+
+  if (is.vector(X) == TRUE ){
+    
+    nXRow <- length(X)
+    nXCol <- 1
+    LengY <- length(Y)
+
+    if (nXRow != LengY){
+      message("Dimension of X does not match dimension of Y.")
+      stop()
+    }
+    
+    if(is.vector(D) == TRUE){
+      nDRow <-  length(D)
+      nDCol <- 1
+      
+    }else{
+      message("When X is a vector, D should be a vector too.")
+      stop()
+    }
+    
+    if(nDRow != nXRow){
+      str= paste("D should be ", nXRow, "-by-1 vector.")
+      message(str)
+      stop()
+    }
+  
+  }else if(is.matrix(X) == TRUE){
+    DimMat <- dim(X)
+    
+    LengY <- length(Y)  
+    
     nXRow <- DimMat[1]
     nXCol <- DimMat[2]
     
+    if(is.matrix(D) == TRUE){
+      DDimMat <- dim(D)
+    }else if(D == "default"){
+      tempA <- (t(X)%*%X)
+      A <- sqrtmat(tempA, -0.5)
+      D <- X%*%A
+      
+    }else{
+      message("D should be a matrix.")
+      stop()
+    } 
+    
+    DDimMat <- dim(D)
+    nDRow <- DDimMat[1]
+    nDCol <- DDimMat[2]
+    
     if (nXRow != LengY){
-      message("Dimension of X does not match dimension of Y")
-      stop
+      message("Dimension of X does not match dimension of Y.")
+      stop()
     }
+    
+    if( (nXRow != nDRow) || ((nXCol != nDCol)) ) {
+      message("Dimesion of D should match dimension of X.")
+      stop()
+    }
+    
+  }else{
+    message("X is not a valid design matrix.")
+    stop()
+    
+  }
+
+  
+  if (nXCol == 1){
+    BetaOLS = solve(t(X)%*%X)%*% (t(X)%*%Y)
+    Tmin <- nlm(TLRLoss(Y, X, D, Hx), BetaOLS)
+    bhat <- Tmin$estimate
+  }else{
+    BetaOLS <- solve(t(X)%*%X)%*% (t(X)%*%Y)
+    Tmin <- optim(BetaOLS, TLRLoss(Y, X, D, Hx))
+    bhat <- Tmin$par
   }
   
-  BetaOLS <- solve(t(X)%*%X)%*% (t(X)%*%Y)
-  Tmin <- optim(BetaOLS, TLRLoss(Y, X))
-  return(Tmin$par)
+  if (is.vector(X) == TRUE ){
+    res <- Y - bhat*X
+  }else{
+    res <- Y - X %*% bhat  
+  }
+  
+  lst = list(betahat=bhat, residual = res)
+  return(lst)
+  
 }
 
 
-TLRLoss <- function(Y, X){
+sqrtmat<-function(MAT, EXP, tol=NULL){
+  MAT <- as.matrix(MAT)
+  matdim <- dim(MAT)
+  if(is.null(tol)){
+    tol=min(1e-7, .Machine$double.eps*max(matdim)*max(MAT))
+  }
+  if(matdim[1]>=matdim[2]){ 
+    svd1 <- svd(MAT)
+    keep <- which(svd1$d > tol)
+    res <- t(svd1$u[,keep]%*%diag(svd1$d[keep]^EXP, nrow=length(keep))%*%t(svd1$v[,keep]))
+  }
+  if(matdim[1]<matdim[2]){ 
+    svd1 <- svd(t(MAT))
+    keep <- which(svd1$d > tol)
+    res <- svd1$u[,keep]%*%diag(svd1$d[keep]^EXP, nrow=length(keep))%*%t(svd1$v[,keep])
+  }
+  return(res)
+}
+
+
+
+
+TLRLoss <- function(Y, X, D, Hx){
   
-  DimMat <- dim(X)
-  nXRow <- DimMat[1]
-  nXCol <- DimMat[2]
-  
-  A <- (t(X)%*%X)^(-1/2);
+  if (is.vector(X) == TRUE ){
+    nXRow <- length(X)
+    nXCol <- 1
+
+  }else {
+    DimMat <- dim(X)
+    LengY <- length(Y)  
+    
+    nXRow <- DimMat[1]
+    nXCol <- DimMat[2]
+
+  }
+
   
   Dual <- function(t){
     fval <- 0
     for (k in 1:nXCol){
-      ak <- A[,k]
-      for (i in 1:nXRow){
-        xi <- t(X[i,])
-        dik <- xi %*% ak
-        ei <- Y[i] - xi %*% t
-        for(j in i:nXRow){
+      if(Hx == "Lebesgue"){
+        
+        for (i in 1:nXRow){
+          if(nXCol == 1){xi <- X[i]} else {xi <- t(X[i,])}  
           
-          xj <- t(X[j,])
-          djk <- xj %*% ak
-          ej <- Y[j] - xj %*% t
-          if (j==i){
-            fval <- fval + djk^2* 2*abs(ej)
-          }else{
-            fval <- fval + dik*djk*Status(ei, ej)
+          dik <- D[i,k]
+          ei <- Y[i] - xi %*% t
+          for(j in i:nXRow){
+            if(nXCol == 1){xj <- X[j]} else {xj <- t(X[j,])}
+            
+            djk <- D[j,k]
+            ej <- Y[j] - xj %*% t
+            
+            fval <- fval + 2*dik*djk* ( max(ei, -ej)+max(-ei, ej) - max(ei, ej)-max(-ei, -ej))
+            
           }
         }
+      }else{
+        tempVal <- 0
         
+        for(i in 1:nXRow){
+          dik <- D[i,k]
+          if(nXCol == 1){xi <- X[i]} else {xi <- t(X[i,])}
+          ei <- Y[i] - xi %*% t
+          if(ei<0){
+            sgn <- -1
+          }else if(ei == 0){
+            sgn <- 0
+          }else{
+            sgn <- 1
+          }
+          tempVal <- tempVal + dik*sgn
+        }
+        fval <- fval + tempVal^2
       }
-      
     }
     return(fval)
     
@@ -92,21 +220,11 @@ TLRLoss <- function(Y, X){
 
 
 
-Status <- function(a,b){
-  if (a>=0 && a+b>=0){
-    return( 2*(a+b))
-  }else {
-    return( -2*(a+b))
-    
-  }
-  
-}
-
-
-#' Performs minimum distance estimation in autoregression model
-#'@param X : vector of n observed value
-#'@param AR_Order : oder of the autoregression model
-#'@return returns minimum distance estimators of the parameter in the autoregression model
+#' Performs minimum distance estimation in autoregression model.
+#'@param X : vector of n observed value.
+#'@param AR_Order : oder of the autoregression model.
+#'@param IntMeasure - Measure used in integration. It should be either Lebesgue or degenerate.
+#'@return returns minimum distance estimators of the parameter in the autoregression model.
 #'@examples
 #'##### Generate stationary AR(2) process with 10 observations 
 #'n <- 10
@@ -125,7 +243,7 @@ Status <- function(a,b){
 #'  } 
 #'X[i] <- t(tempCol)%*% rho + eps[i]
 #'}
-#'rhohat <- KoulArMde(X, p)
+#'rhohat <- KoulArMde(X, p, "Lebesgue")
 
 #'@references
 #'[1] Koul, H. L (1985). Minimum distance estimation in linear regression with unknown error distributions. Statist. Probab. Lett., 3 1-8.
@@ -141,22 +259,19 @@ Status <- function(a,b){
 
 
 
-
-
-
-
-
-
-
-
-
-KoulArMde <- function(X, AR_Order){
+KoulArMde <- function(X, AR_Order, IntMeasure){
+  
+  Hx = IntMeasure
+  if( (Hx != "Lebesgue") && (Hx != "Degenerate")){
+    message("Intergrating measure Hx should be either Lebesgue or Degenerate.")
+    stop()
+  }
   
   nLength <- length(X)
   
   if(nLength<=AR_Order){
     message("Length of vector X should be greater than AR_Order.")
-    stop
+    stop()
   }
   
   Xres <- rep(0, times=(nLength-AR_Order))
@@ -181,13 +296,13 @@ KoulArMde <- function(X, AR_Order){
   lbVec <- rep(-1, times=AR_Order)
   ubVec <- rep(1, times=AR_Order)
   
-  Tmin <- nlminb(rho0, TARLoss(X, AR_Order), lower=lbVec, upper=ubVec)
+  Tmin <- nlminb(rho0, TARLoss(X, AR_Order, Hx), lower=lbVec, upper=ubVec)
   
   return(Tmin$par)
 }
 
 
-TARLoss <- function(X, AR_Order){
+TARLoss <- function(X, AR_Order, Hx){
   
   nLength <- length(X)
   
@@ -195,52 +310,82 @@ TARLoss <- function(X, AR_Order){
     fval <- 0
     for (k in 1:AR_Order){
       
-      for (i in 1:nLength){
-        if(i<=k){
-          dik <- 0
-        }else{
-          dik <- X[i-k]/sqrt(nLength)
-        }
-        
-        tempColi <- rep(0, times=AR_Order)
-        for(m in 1:AR_Order){
-          if(i-m<=0){
-            tempColi[m] <- 0
+      if(Hx == "Lebesgue"){
+        for (i in 1:nLength){
+          if(i<=k){
+            dik <- 0
           }else{
-            tempColi[m] <- X[i-m]
-          }	
-          
-        }
-        ei <- X[i] - t(r)%*%tempColi 
-        
-        for(j in i:nLength){
-          if(j<=k){
-            djk <- 0
-          }else{
-            djk <- X[j-k]/sqrt(nLength)
+            dik <- X[i-k]/sqrt(nLength)
           }
-          tempColj <- rep(0, times=AR_Order)
           
+          tempColi <- rep(0, times=AR_Order)
           for(m in 1:AR_Order){
-            if(j-m<=0){
-              tempColj[m] <- 0
+            if(i-m<=0){
+              tempColi[m] <- 0
             }else{
-              tempColj[m] <- X[j-m]
+              tempColi[m] <- X[i-m]
             }	
             
           }
-          ej <- X[j] - t(r)%*%tempColj
+          ei <- X[i] - t(r)%*%tempColi 
           
-          if (j==i){
-            fval <- fval + djk^2* 2*abs(ej)
-          }else{
-            fval <- fval + dik*djk*Status(ei, ej)
+          for(j in i:nLength){
+            if(j<=k){
+              djk <- 0
+            }else{
+              djk <- X[j-k]/sqrt(nLength)
+            }
+            tempColj <- rep(0, times=AR_Order)
+            
+            for(m in 1:AR_Order){
+              if(j-m<=0){
+                tempColj[m] <- 0
+              }else{
+                tempColj[m] <- X[j-m]
+              }	
+              
+            }
+            ej <- X[j] - t(r)%*%tempColj
+            
+            fval <- fval + 2*dik*djk* ( max(ei, -ej)+max(-ei, ej) - max(ei, ej)-max(-ei, -ej))
           }
           
         }
         
+        
+      }else{
+        tempVal<-0
+        for (i in 1:nLength){
+          if(i<=k){
+            dik <- 0
+          }else{
+            dik <- X[i-k]/sqrt(nLength)
+          }
+          
+          tempColi <- rep(0, times=AR_Order)
+          for(m in 1:AR_Order){
+            if(i-m<=0){
+              tempColi[m] <- 0
+            }else{
+              tempColi[m] <- X[i-m]
+            }	
+            
+          }
+          ei <- X[i] - t(r)%*%tempColi
+          
+          if(ei<0){
+            sgn <- -1
+          }else if(ei == 0){
+            sgn <- 0
+          }else{
+            sgn <- 1
+          }
+          tempVal <- tempVal+dik*sgn
+        }
+        fval <- fval+tempVal^2
       }
       
+
     }
     return(fval)
     

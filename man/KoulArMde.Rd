@@ -2,20 +2,22 @@
 % Please edit documentation in R/MdeFunc.R
 \name{KoulArMde}
 \alias{KoulArMde}
-\title{Performs minimum distance estimation in autoregression model}
+\title{Performs minimum distance estimation in autoregression model.}
 \usage{
-KoulArMde(X, AR_Order)
+KoulArMde(X, AR_Order, IntMeasure)
 }
 \arguments{
-\item{X}{: vector of n observed value}
+\item{X}{: vector of n observed value.}
 
-\item{AR_Order}{: oder of the autoregression model}
+\item{AR_Order}{: oder of the autoregression model.}
+
+\item{IntMeasure}{- Measure used in integration. It should be either Lebesgue or degenerate.}
 }
 \value{
-returns minimum distance estimators of the parameter in the autoregression model
+returns minimum distance estimators of the parameter in the autoregression model.
 }
 \description{
-Performs minimum distance estimation in autoregression model
+Performs minimum distance estimation in autoregression model.
 }
 \examples{
 ##### Generate stationary AR(2) process with 10 observations
@@ -35,7 +37,7 @@ for (i in 1:n){
  }
 X[i] <- t(tempCol)\%*\% rho + eps[i]
 }
-rhohat <- KoulArMde(X, p)
+rhohat <- KoulArMde(X, p, "Lebesgue")
 }
 \references{
 [1] Koul, H. L (1985). Minimum distance estimation in linear regression with unknown error distributions. Statist. Probab. Lett., 3 1-8.

@@ -2,5 +2,6 @@
 
 export(KoulArMde)
 export(KoulLrMde)
+importFrom("stats","nlm")
 importFrom("stats","nlminb")
 importFrom("stats","optim")
