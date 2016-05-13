@@ -45,6 +45,6 @@ resid <- KoulLrMde(Y,X,D,"Lebesgue")$residual  ##### Obtain residual
 [3] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
 }
 \seealso{
-KoulArMde()
+KoulArMde() and Koul2StageMDE()
 }
 

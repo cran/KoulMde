@@ -47,6 +47,6 @@ rhohat <- KoulArMde(X, p, "Lebesgue")
 [3] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
 }
 \seealso{
-KoulLrMde()
+KoulLrMde() and Koul2StageMDE()
 }
 

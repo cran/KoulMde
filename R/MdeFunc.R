@@ -1,3 +1,97 @@
+#' Performs two-stage minimum distance estimation in linear regression model with autoregressive error.
+#'@param Y - Vecotor of response variable in linear regression model.
+#'@param X - Design matrix of explanatory variable in linear regression model.
+#'@param D - Weight Matrix. Dimesion of D should match that of X. Default value is X*A where A=(X'*X)^(-1/2).
+#'@param RegIntMeasure - Measure used in integration for the estimation of regression coefficients. It should be either Lebesgue or degenerate. 
+#'@param AR_Order - Oder of the autoregressive error.
+#'@param ArIntMeasure - Measure used in the first stage for estimation of autoregressive coefficient of error.
+#'@return MDE1stage - The list of the first stage minimum distance estimation result. It contains betahat1stage, residual1stage, and rho1stage.    
+#'@return betahat1stage - The first stage minimum distance estimator of regression coefficient.
+#'@return residual1stage - Residuals after the first stage minimum distance estimation. 
+#'@return rho1stage - The first stage minimum distance estimator of autoregressive coefficient.
+#'@return MDE2stage - The list of the second stage minimum distance estimation result. It contains betahat2stage, residual2stage, and rho2stage.
+#'@return betahat2stage - The second stage minimum distance estimator of regression coefficient.
+#'@return residual2stage - Residuals after the second stage minimum distance estimation. 
+#'@return rho2stage - The second stage minimum distance estimator of autoregressive coefficient.
+#'@examples
+#'####################
+#'n <- 10
+#'p <- 3
+#'X <- matrix(rnorm(n*p, 5,3), nrow=n, ncol=p)   #### Generate n-by-p design matrix X 
+#'beta <- c(-2, 0.3, 1.5)                        #### Generate true beta = (-2, 0.3, 1.5)' 
+#'rho  <- 0.4                                    #### True rho = 0.4  
+#'eps <- vector(length=n)                        
+#'xi <- rnorm(n, 0,1)                            #### Generate innovation from N(0,1)
+#'                                               #### Generate autoregressive process or order 1
+#'for(i in 1:n){       
+#'  if(i==1){eps[i] <- xi[i]}
+#'  else{eps[i] <- rho*eps[i-1] + xi[i]}
+#'} 
+#'Y <- X%*%beta + eps
+#'#####################
+#'D <- "default"                                  #### Use the default weight matrix 
+#'MDEResult <- Koul2StageMDE(Y,X, "default", "Lebesgue", 1, "Lebesgue")
+#'MDE1stageResult <- MDEResult[[1]]
+#'MDE2stageResult <- MDEResult[[1]]
+#'
+#'beta1 <- MDE1stageResult$betahat1stage
+#'residual1 <- MDE1stageResult$residual1stage
+#'rho1 <- MDE1stageResult$rhohat1stage
+#'
+#'beta2 <- MDE2stageResult$betahat1stage
+#'residual2 <- MDE1stageResult$residual2stage
+#'rho2 <- MDE2stageResult$rhohat1stage
+
+
+
+#'@references
+#'[1] Koul, H. L (1985). Minimum distance estimation in linear regression with unknown error distributions. Statist. Probab. Lett., 3 1-8.
+#'@references
+#'[2] Koul, H. L (1986). Minimum distance estimation and goodness-of-fit tests in first-order autoregression. Ann. Statist., 14 1194-1213. 
+#'@references
+#'[3] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
+#'@seealso KoulArMde() and KoulLrMde() 
+#'@export
+#'@importFrom "stats" "optim"
+#'@importFrom "stats" "nlm"
+
+Koul2StageMDE <- function(Y,X,D,RegIntMeasure, AR_Order, ArIntMeasure){
+  
+  
+  DimMat <- dim(X)
+  n <- DimMat[1]
+  p <- DimMat[2]
+  
+  MDE1Result <- KoulLrMde(Y,X, D, RegIntMeasure)
+  betahat1stage <- MDE1Result$betahat
+  residual1stage <- MDE1Result$residual
+  rho1stage <- KoulArMde(residual1stage, AR_Order, ArIntMeasure)
+  
+  MDE1stage <- list(betahat1stage, residual1stage, rho1stage)
+  
+  ###########################   2 stage MDE
+  Ytilde <- vector(length=(n-1))
+  Xtilde <- matrix(rep(0,times=(n-1)*p), nrow=(n-1), ncol=p )
+  
+  for(j in 1:(n-1)){
+    Xtilde[j, ] <- X[(j+1), ] - rho1stage*X[j, ]
+    Ytilde[j] <- Y[j+1] - rho1stage*Y[j]
+  }
+  MDE2Result <- KoulLrMde(Ytilde, Xtilde, D, RegIntMeasure)
+  betahat2stage <- MDE2Result$betahat
+  residual2stage <- Y-X%*%betahat2stage
+  rho2stage <- KoulArMde(residual2stage, AR_Order, ArIntMeasure)
+  
+  MDE2stage <- list(betahat2stage, residual2stage, rho2stage)
+  
+  ResultVal <- list(MDE1stage, MDE2stage)
+  return(ResultVal)
+  
+}
+
+
+
+
 #' Performs minimum distance estimation in linear regression model: Y=Xb + error.
 #'@param Y - Vecotor of response variable in linear regression model.
 #'@param X - Design matrix of explanatory variable in linear regression model.
@@ -26,7 +120,7 @@
 #'[2] Koul, H. L (1986). Minimum distance estimation and goodness-of-fit tests in first-order autoregression. Ann. Statist., 14 1194-1213. 
 #'@references
 #'[3] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
-#'@seealso KoulArMde()
+#'@seealso KoulArMde() and Koul2StageMDE()
 #'@export
 #'@importFrom "stats" "optim"
 #'@importFrom "stats" "nlm"
@@ -253,7 +347,7 @@ TLRLoss <- function(Y, X, D, Hx){
 #'[3] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
 #'@importFrom "stats" "nlminb"
 #'@export
-#'@seealso KoulLrMde()
+#'@seealso KoulLrMde() and Koul2StageMDE()
 
 
 
