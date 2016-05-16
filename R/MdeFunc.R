@@ -1,46 +1,64 @@
-#' Performs two-stage minimum distance estimation in linear regression model with autoregressive error.
-#'@param Y - Vecotor of response variable in linear regression model.
-#'@param X - Design matrix of explanatory variable in linear regression model.
-#'@param D - Weight Matrix. Dimesion of D should match that of X. Default value is X*A where A=(X'*X)^(-1/2).
-#'@param RegIntMeasure - Measure used in integration for the estimation of regression coefficients. It should be either Lebesgue or degenerate. 
-#'@param AR_Order - Oder of the autoregressive error.
-#'@param ArIntMeasure - Measure used in the first stage for estimation of autoregressive coefficient of error.
-#'@return MDE1stage - The list of the first stage minimum distance estimation result. It contains betahat1stage, residual1stage, and rho1stage.    
-#'@return betahat1stage - The first stage minimum distance estimator of regression coefficient.
-#'@return residual1stage - Residuals after the first stage minimum distance estimation. 
-#'@return rho1stage - The first stage minimum distance estimator of autoregressive coefficient.
-#'@return MDE2stage - The list of the second stage minimum distance estimation result. It contains betahat2stage, residual2stage, and rho2stage.
-#'@return betahat2stage - The second stage minimum distance estimator of regression coefficient.
-#'@return residual2stage - Residuals after the second stage minimum distance estimation. 
-#'@return rho2stage - The second stage minimum distance estimator of autoregressive coefficient.
+#'Two-stage minimum distance estimation in linear regression model with autoregressive error.
+#' 
+#'Estimates both regression and autoregressive coefficients in the model \eqn{Y=X\beta + \epsilon} where \eqn{\epsilon} is autoregressive process of known order \code{q}
+#'@param Y - Vector of response variables in linear regression model.
+#'@param X - Design matrix of explanatory variables in linear regression model.
+#'@param D - Weight matrix. Dimension of D should match that of X. "default" uses XA where A=(X'X)^(-1/2).
+#'@param RegIntMeasure - Symmetric and \eqn{\sigma}-finite measure used for estimating \eqn{\beta}.  
+#'@param AR_Order - Order of the autoregressive error.
+#'@param ArIntMeasure - Symmetric and \eqn{\sigma}-finite measure used for estimating autoregressive coefficients of the error.
+#'@return MDE1stage - The list of the first stage minimum distance estimation result. It contains betahat1stage, residual1stage, and rhohat1stage.    
+#'\itemize{
+#'  \item betahat1stage - The first stage minimum distance estimators of regression coefficients.
+#'  \item residual1stage - Residuals after the first stage minimum distance estimation. 
+#'  \item rhohat1stage - The first stage minimum distance estimators of autoregressive coefficients of the error.  
+#'}
+#'@return MDE2stage - The list of the second stage minimum distance estimation result. It contains betahat2stage, residual2stage, and rhohat2stage.
+#'\itemize{
+#'  \item betahat2stage - The second stage minimum distance estimators of regression coefficients.
+#'  \item residual2stage - Residuals after the second stage minimum distance estimation. 
+#'  \item rhohat2stage - The second stage minimum distance estimators of autoregressive coefficients of the error.
+#'}
 #'@examples
 #'####################
 #'n <- 10
-#'p <- 3
-#'X <- matrix(rnorm(n*p, 5,3), nrow=n, ncol=p)   #### Generate n-by-p design matrix X 
-#'beta <- c(-2, 0.3, 1.5)                        #### Generate true beta = (-2, 0.3, 1.5)' 
-#'rho  <- 0.4                                    #### True rho = 0.4  
+#'p <- 2
+#'X <- matrix(runif(n*p, 0,20), nrow=n, ncol=p)   #### Generate n-by-p design matrix X 
+#'beta <- c(-2, 1.5)                        #### Generate true beta = (-2, 1.5)' 
+#'
+#'q <- 1
+#'rho <- 0.8                            ##### Generate true parameters rho = 0.8
 #'eps <- vector(length=n)                        
 #'xi <- rnorm(n, 0,1)                            #### Generate innovation from N(0,1)
-#'                                               #### Generate autoregressive process or order 1
-#'for(i in 1:n){       
-#'  if(i==1){eps[i] <- xi[i]}
-#'  else{eps[i] <- rho*eps[i-1] + xi[i]}
-#'} 
+#'                                               #### Generate autoregressive process of order q=1
+#'for (i in 1:n){
+#'  tempCol <- rep(0, times=q)
+#'  for (j in 1:q){
+#'    if(i-j<=0){
+#'      tempCol[j] <- 0
+#'    }else{
+#'      tempCol[j] <- eps[i-j]
+#'    }
+#'  } 
+#'  eps[i] <- t(tempCol)%*% rho + xi[i]
+#'}
+#'
 #'Y <- X%*%beta + eps
 #'#####################
 #'D <- "default"                                  #### Use the default weight matrix 
-#'MDEResult <- Koul2StageMDE(Y,X, "default", "Lebesgue", 1, "Lebesgue")
-#'MDE1stageResult <- MDEResult[[1]]
-#'MDE2stageResult <- MDEResult[[1]]
+#'
+#'Lx <- function(x){return(x)}                    ##### Define Lebesgue measure   
+#'MDEResult <- Koul2StageMde(Y,X, "default", Lx, q, Lx)
+#'MDE1stageResult <- MDEResult$MDE1stage
+#'MDE2stageResult <- MDEResult$MDE2stage
 #'
 #'beta1 <- MDE1stageResult$betahat1stage
 #'residual1 <- MDE1stageResult$residual1stage
 #'rho1 <- MDE1stageResult$rhohat1stage
 #'
-#'beta2 <- MDE2stageResult$betahat1stage
-#'residual2 <- MDE1stageResult$residual2stage
-#'rho2 <- MDE2stageResult$rhohat1stage
+#'beta2 <- MDE2stageResult$betahat2stage
+#'residual2 <- MDE2stageResult$residual2stage
+#'rho2 <- MDE2stageResult$rhohat2stage
 
 
 
@@ -55,7 +73,7 @@
 #'@importFrom "stats" "optim"
 #'@importFrom "stats" "nlm"
 
-Koul2StageMDE <- function(Y,X,D,RegIntMeasure, AR_Order, ArIntMeasure){
+Koul2StageMde <- function(Y,X,D,RegIntMeasure, AR_Order, ArIntMeasure){
   
   
   DimMat <- dim(X)
@@ -63,28 +81,35 @@ Koul2StageMDE <- function(Y,X,D,RegIntMeasure, AR_Order, ArIntMeasure){
   p <- DimMat[2]
   
   MDE1Result <- KoulLrMde(Y,X, D, RegIntMeasure)
-  betahat1stage <- MDE1Result$betahat
-  residual1stage <- MDE1Result$residual
-  rho1stage <- KoulArMde(residual1stage, AR_Order, ArIntMeasure)
+  beta1 <- MDE1Result$betahat
+  resid1 <- MDE1Result$residual
+  rho1 <- KoulArMde(resid1, AR_Order, ArIntMeasure)$rhohat
   
-  MDE1stage <- list(betahat1stage, residual1stage, rho1stage)
+  MDE1 <- list(betahat1stage=beta1, residual1stage=resid1, rhohat1stage=rho1)
   
   ###########################   2 stage MDE
-  Ytilde <- vector(length=(n-1))
-  Xtilde <- matrix(rep(0,times=(n-1)*p), nrow=(n-1), ncol=p )
+  Ytilde <- vector(length=(n-AR_Order))
+  Xtilde <- matrix(rep(0,times=(n-AR_Order)*p), nrow=(n-AR_Order), ncol=p )
   
-  for(j in 1:(n-1)){
-    Xtilde[j, ] <- X[(j+1), ] - rho1stage*X[j, ]
-    Ytilde[j] <- Y[j+1] - rho1stage*Y[j]
+  for(j in 1:(n-AR_Order)){
+    
+    tempX <- rep(0, times=p)
+    tempY <- 0
+    for (k in 1: AR_Order){
+      tempX <- tempX + rho1[k]*Y[AR_Order+j-k, ]
+      tempY <- tempY + rho1[k]*Y[AR_Order+j-k]
+    }
+    Xtilde[j, ] <- X[(j+AR_Order), ] - tempX
+    Ytilde[j] <- Y[j+AR_Order] - tempY
   }
   MDE2Result <- KoulLrMde(Ytilde, Xtilde, D, RegIntMeasure)
-  betahat2stage <- MDE2Result$betahat
-  residual2stage <- Y-X%*%betahat2stage
-  rho2stage <- KoulArMde(residual2stage, AR_Order, ArIntMeasure)
+  beta2 <- MDE2Result$betahat
+  resid2 <- Y-X%*%beta2
+  rho2 <- KoulArMde(resid2, AR_Order, ArIntMeasure)$rhohat
   
-  MDE2stage <- list(betahat2stage, residual2stage, rho2stage)
+  MDE2 <- list(betahat2stage=beta2, residual2stage=resid2, rhohat2stage=rho2)
   
-  ResultVal <- list(MDE1stage, MDE2stage)
+  ResultVal <- list(MDE1stage=MDE1, MDE2stage=MDE2)
   return(ResultVal)
   
 }
@@ -92,27 +117,41 @@ Koul2StageMDE <- function(Y,X,D,RegIntMeasure, AR_Order, ArIntMeasure){
 
 
 
-#' Performs minimum distance estimation in linear regression model: Y=Xb + error.
-#'@param Y - Vecotor of response variable in linear regression model.
-#'@param X - Design matrix of explanatory variable in linear regression model.
-#'@param D - Weight Matrix. Dimesion of D should match that of X. Default value is X*A where A=(X'*X)^(-1/2).
-#'@param IntMeasure - Measure used in integration. It should be either Lebesgue or degenerate. 
-#'@return betahat - Minimum distance estimator of b. 
-#'@return residual - Residuals after minimum distance estimation. 
+#' Minimum distance estimation in linear regression model.
+#'
+#' Estimates the regression coefficients in the model \eqn{Y=X\beta + \epsilon}.
+#'@param Y - Vector of response variables in linear regression model.
+#'@param X - Design matrix of explanatory variables in linear regression model.
+#'@param D - Weight matrix. Dimension of D should match that of X. "default" uses XA where A=(X'X)^(-1/2).
+#'@param IntMeasure - Symmetric and \eqn{\sigma}-finite measure.
+#'@return betahat   - Minimum distance estimator of \eqn{\beta}. 
+#'@return residual  - Residuals after minimum distance estimation. 
 #'@examples
 #'####################
 #'n <- 10
 #'p <- 3
-#'X <- matrix(rnorm(n*p, 5,3), nrow=n, ncol=p)   #### Generate n-by-p design matrix X 
+#'X <- matrix(runif(n*p, 0,50), nrow=n, ncol=p)   #### Generate n-by-p design matrix X 
 #'beta <- c(-2, 0.3, 1.5)                        #### Generate true beta = (-2, 0.3, 1.5)' 
 #'eps <- rnorm(n, 0,1)                           #### Generate errors from N(0,1)
 #'Y <- X%*%beta + eps
-#'#####################
-#'D = "default"                                  #### Use the default weight matrix 
-#'KM <- KoulLrMde(Y,X,D,"Lebesgue")              ##### Use Lebesgue measure for integration
-#'betahat <- KoulLrMde(Y,X,D,"Lebesgue")$betahat ##### Obtain minimum distance estimator 
-#'resid <- KoulLrMde(Y,X,D,"Lebesgue")$residual  ##### Obtain residual 
-
+#'
+#'D <- "default"                                 #### Use the default weight matrix
+#'
+#'Lx <- function(x){return(x)}                   ##### Define Lebesgue measure 
+#'MDEResult <- KoulLrMde(Y,X,D, Lx)              ##### Use Lebesgue measure for the integration
+#'betahat <- MDEResult$betahat                   ##### Obtain minimum distance estimator 
+#'resid <- MDEResult$residual                    ##### Obtain residual 
+#'
+#'Dx <- function(x){                             ##### Define degenerate measure at 0
+#'        if(x==0){
+#'          return(1)
+#'        }else{
+#'          return(0)
+#'        }
+#'      }
+#'MDEResult <- KoulLrMde(Y,X,D, Dx)              ##### Use degenerate measure at 0 for the integration
+#'betahat <- MDEResult$betahat                   ##### Obtain minimum distance estimator 
+#'resid <- MDEResult$residual                    ##### Obtain residual
 
 #'@references
 #'[1] Koul, H. L (1985). Minimum distance estimation in linear regression with unknown error distributions. Statist. Probab. Lett., 3 1-8.
@@ -120,7 +159,7 @@ Koul2StageMDE <- function(Y,X,D,RegIntMeasure, AR_Order, ArIntMeasure){
 #'[2] Koul, H. L (1986). Minimum distance estimation and goodness-of-fit tests in first-order autoregression. Ann. Statist., 14 1194-1213. 
 #'@references
 #'[3] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
-#'@seealso KoulArMde() and Koul2StageMDE()
+#'@seealso KoulArMde() and Koul2StageMde()
 #'@export
 #'@importFrom "stats" "optim"
 #'@importFrom "stats" "nlm"
@@ -134,10 +173,6 @@ KoulLrMde <- function(Y, X, D, IntMeasure){
     stop()
   }
   Hx = IntMeasure
-  if( (Hx != "Lebesgue") && (Hx != "Degenerate")){
-    message("Intergrating measure Hx should be either Lebesgue or Degenerate.")
-    stop()
-  }
 
   if (is.vector(X) == TRUE ){
     
@@ -227,7 +262,6 @@ KoulLrMde <- function(Y, X, D, IntMeasure){
   
 }
 
-
 sqrtmat<-function(MAT, EXP, tol=NULL){
   MAT <- as.matrix(MAT)
   matdim <- dim(MAT)
@@ -246,9 +280,6 @@ sqrtmat<-function(MAT, EXP, tol=NULL){
   }
   return(res)
 }
-
-
-
 
 TLRLoss <- function(Y, X, D, Hx){
   
@@ -269,41 +300,28 @@ TLRLoss <- function(Y, X, D, Hx){
   Dual <- function(t){
     fval <- 0
     for (k in 1:nXCol){
-      if(Hx == "Lebesgue"){
+      for (i in 1:nXRow){
+        if(nXCol == 1){xi <- X[i]} else {xi <- t(X[i,])}  
         
-        for (i in 1:nXRow){
-          if(nXCol == 1){xi <- X[i]} else {xi <- t(X[i,])}  
+        dik <- D[i,k]
+        ei <- Y[i] - xi %*% t
+        expr_i <- expression(Hx(ei))
+        ei <- eval(expr_i)
+        for(j in i:nXRow){
+          if(nXCol == 1){xj <- X[j]} else {xj <- t(X[j,])}
           
-          dik <- D[i,k]
-          ei <- Y[i] - xi %*% t
-          for(j in i:nXRow){
-            if(nXCol == 1){xj <- X[j]} else {xj <- t(X[j,])}
-            
-            djk <- D[j,k]
-            ej <- Y[j] - xj %*% t
-            
-            fval <- fval + 2*dik*djk* ( max(ei, -ej)+max(-ei, ej) - max(ei, ej)-max(-ei, -ej))
-            
-          }
+          djk <- D[j,k]
+          ej <- Y[j] - xj %*% t
+          
+          expr_j <- expression(Hx(ej))
+          ej <- eval(expr_j)
+          
+          fval <- fval + 2*dik*djk* ( max(ei, -ej)+max(-ei, ej) - max(ei, ej)-max(-ei, -ej))
+          
         }
-      }else{
-        tempVal <- 0
-        
-        for(i in 1:nXRow){
-          dik <- D[i,k]
-          if(nXCol == 1){xi <- X[i]} else {xi <- t(X[i,])}
-          ei <- Y[i] - xi %*% t
-          if(ei<0){
-            sgn <- -1
-          }else if(ei == 0){
-            sgn <- 0
-          }else{
-            sgn <- 1
-          }
-          tempVal <- tempVal + dik*sgn
-        }
-        fval <- fval + tempVal^2
       }
+      
+      
     }
     return(fval)
     
@@ -314,21 +332,24 @@ TLRLoss <- function(Y, X, D, Hx){
 
 
 
-#' Performs minimum distance estimation in autoregression model.
-#'@param X : vector of n observed value.
-#'@param AR_Order : oder of the autoregression model.
-#'@param IntMeasure - Measure used in integration. It should be either Lebesgue or degenerate.
-#'@return returns minimum distance estimators of the parameter in the autoregression model.
+#' Minimum distance estimation in the autoregression model of the known order.
+#'
+#' Estimates the autoressive coefficients in the \eqn{X_t = \rho' Z_t + \xi_t } where \eqn{Z_t} is the vector of \eqn{q} observations at times \eqn{t-1,...,t-q}.  
+#'@param X - Vector of \code{n} observed values.
+#'@param AR_Order - Order of the autoregression model.
+#'@param IntMeasure - Symmetric and \eqn{\sigma}-finite measure.
+#'@return rhohat - Minimum distance estimator of \eqn{\rho}.
+#'@return residual - Residuals after minimum distance estimation. 
 #'@examples
 #'##### Generate stationary AR(2) process with 10 observations 
 #'n <- 10
-#'p <- 2
+#'q <- 2
 #'rho <- c(-0.2, 0.8)    ##### Generate true parameters rho = (-0.2, 0.8)'
 #'eps <- rnorm(n, 0,1)   ##### Generate innovations from N(0,1)
 #'X <- rep(0, times=n)
 #'for (i in 1:n){
-#'  tempCol <- rep(0, times=p)
-#'  for (j in 1:p){
+#'  tempCol <- rep(0, times=q)
+#'  for (j in 1:q){
 #'    if(i-j<=0){
 #'      tempCol[j] <- 0
 #'    }else{
@@ -337,7 +358,23 @@ TLRLoss <- function(Y, X, D, Hx){
 #'  } 
 #'X[i] <- t(tempCol)%*% rho + eps[i]
 #'}
-#'rhohat <- KoulArMde(X, p, "Lebesgue")
+#'
+#'Lx <- function(x){return(x)}                   ##### Define Lebesgue measure 
+#'MDEResult <- KoulArMde(X, q, Lx)               ##### Use Lebesgue measure for the integration
+#'rhohat <- MDEResult$rhohat                     ##### Obtain minimum distance estimator
+#'resid  <- MDEResult$residual                   ##### Obtain residual
+#'
+#'Dx <- function(x){                             ##### Define degenerate measure at 0
+#'        if(x==0){
+#'          return(1)
+#'        }else{
+#'          return(0)
+#'        }
+#'      }
+#'MDEResult <- KoulArMde(X, q, Dx)               ##### Use degenerate measure at 0 for the integration
+#'rhohat <- MDEResult$rhohat                     ##### Obtain minimum distance estimator 
+#'resid <- MDEResult$residual                    ##### Obtain residual
+
 
 #'@references
 #'[1] Koul, H. L (1985). Minimum distance estimation in linear regression with unknown error distributions. Statist. Probab. Lett., 3 1-8.
@@ -347,7 +384,7 @@ TLRLoss <- function(Y, X, D, Hx){
 #'[3] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
 #'@importFrom "stats" "nlminb"
 #'@export
-#'@seealso KoulLrMde() and Koul2StageMDE()
+#'@seealso KoulLrMde() and Koul2StageMde()
 
 
 
@@ -356,11 +393,7 @@ TLRLoss <- function(Y, X, D, Hx){
 KoulArMde <- function(X, AR_Order, IntMeasure){
   
   Hx = IntMeasure
-  if( (Hx != "Lebesgue") && (Hx != "Degenerate")){
-    message("Intergrating measure Hx should be either Lebesgue or Degenerate.")
-    stop()
-  }
-  
+
   nLength <- length(X)
   
   if(nLength<=AR_Order){
@@ -391,10 +424,14 @@ KoulArMde <- function(X, AR_Order, IntMeasure){
   ubVec <- rep(1, times=AR_Order)
   
   Tmin <- nlminb(rho0, TARLoss(X, AR_Order, Hx), lower=lbVec, upper=ubVec)
-  
-  return(Tmin$par)
-}
 
+  rho_hat <- Tmin$par
+  resid <- Xres - Xexp%*% rho_hat
+  
+  lst <- list(rhohat=rho_hat, residual=resid)
+  
+  return(lst)
+}
 
 TARLoss <- function(X, AR_Order, Hx){
   
@@ -404,81 +441,51 @@ TARLoss <- function(X, AR_Order, Hx){
     fval <- 0
     for (k in 1:AR_Order){
       
-      if(Hx == "Lebesgue"){
-        for (i in 1:nLength){
-          if(i<=k){
-            dik <- 0
+      for (i in 1:nLength){
+        if(i<=k){
+          dik <- 0
+        }else{
+          dik <- X[i-k]/sqrt(nLength)
+        }
+        
+        tempColi <- rep(0, times=AR_Order)
+        for(m in 1:AR_Order){
+          if(i-m<=0){
+            tempColi[m] <- 0
           }else{
-            dik <- X[i-k]/sqrt(nLength)
-          }
+            tempColi[m] <- X[i-m]
+          }	
           
-          tempColi <- rep(0, times=AR_Order)
+        }
+        ei <- X[i] - t(r)%*%tempColi 
+        expr_i <- expression(Hx(ei))
+        ei <- eval(expr_i)
+        
+        
+        for(j in i:nLength){
+          if(j<=k){
+            djk <- 0
+          }else{
+            djk <- X[j-k]/sqrt(nLength)
+          }
+          tempColj <- rep(0, times=AR_Order)
+          
           for(m in 1:AR_Order){
-            if(i-m<=0){
-              tempColi[m] <- 0
+            if(j-m<=0){
+              tempColj[m] <- 0
             }else{
-              tempColi[m] <- X[i-m]
+              tempColj[m] <- X[j-m]
             }	
             
           }
-          ei <- X[i] - t(r)%*%tempColi 
+          ej <- X[j] - t(r)%*%tempColj
+          expr_j <- expression(Hx(ej))
+          ej <- eval(expr_j)
           
-          for(j in i:nLength){
-            if(j<=k){
-              djk <- 0
-            }else{
-              djk <- X[j-k]/sqrt(nLength)
-            }
-            tempColj <- rep(0, times=AR_Order)
-            
-            for(m in 1:AR_Order){
-              if(j-m<=0){
-                tempColj[m] <- 0
-              }else{
-                tempColj[m] <- X[j-m]
-              }	
-              
-            }
-            ej <- X[j] - t(r)%*%tempColj
-            
-            fval <- fval + 2*dik*djk* ( max(ei, -ej)+max(-ei, ej) - max(ei, ej)-max(-ei, -ej))
-          }
-          
+          fval <- fval + 2*dik*djk* ( max(ei, -ej)+max(-ei, ej) - max(ei, ej)-max(-ei, -ej))
         }
         
-        
-      }else{
-        tempVal<-0
-        for (i in 1:nLength){
-          if(i<=k){
-            dik <- 0
-          }else{
-            dik <- X[i-k]/sqrt(nLength)
-          }
-          
-          tempColi <- rep(0, times=AR_Order)
-          for(m in 1:AR_Order){
-            if(i-m<=0){
-              tempColi[m] <- 0
-            }else{
-              tempColi[m] <- X[i-m]
-            }	
-            
-          }
-          ei <- X[i] - t(r)%*%tempColi
-          
-          if(ei<0){
-            sgn <- -1
-          }else if(ei == 0){
-            sgn <- 0
-          }else{
-            sgn <- 1
-          }
-          tempVal <- tempVal+dik*sgn
-        }
-        fval <- fval+tempVal^2
-      }
-      
+      }      
 
     }
     return(fval)

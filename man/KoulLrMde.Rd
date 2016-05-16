@@ -2,40 +2,53 @@
 % Please edit documentation in R/MdeFunc.R
 \name{KoulLrMde}
 \alias{KoulLrMde}
-\title{Performs minimum distance estimation in linear regression model: Y=Xb + error.}
+\title{Minimum distance estimation in linear regression model.}
 \usage{
 KoulLrMde(Y, X, D, IntMeasure)
 }
 \arguments{
-\item{Y}{- Vecotor of response variable in linear regression model.}
+\item{Y}{- Vector of response variables in linear regression model.}
 
-\item{X}{- Design matrix of explanatory variable in linear regression model.}
+\item{X}{- Design matrix of explanatory variables in linear regression model.}
 
-\item{D}{- Weight Matrix. Dimesion of D should match that of X. Default value is X*A where A=(X'*X)^(-1/2).}
+\item{D}{- Weight matrix. Dimension of D should match that of X. "default" uses XA where A=(X'X)^(-1/2).}
 
-\item{IntMeasure}{- Measure used in integration. It should be either Lebesgue or degenerate.}
+\item{IntMeasure}{- Symmetric and \eqn{\sigma}-finite measure.}
 }
 \value{
-betahat - Minimum distance estimator of b.
+betahat   - Minimum distance estimator of \eqn{\beta}.
 
-residual - Residuals after minimum distance estimation.
+residual  - Residuals after minimum distance estimation.
 }
 \description{
-Performs minimum distance estimation in linear regression model: Y=Xb + error.
+Estimates the regression coefficients in the model \eqn{Y=X\beta + \epsilon}.
 }
 \examples{
 ####################
 n <- 10
 p <- 3
-X <- matrix(rnorm(n*p, 5,3), nrow=n, ncol=p)   #### Generate n-by-p design matrix X
+X <- matrix(runif(n*p, 0,50), nrow=n, ncol=p)   #### Generate n-by-p design matrix X
 beta <- c(-2, 0.3, 1.5)                        #### Generate true beta = (-2, 0.3, 1.5)'
 eps <- rnorm(n, 0,1)                           #### Generate errors from N(0,1)
 Y <- X\%*\%beta + eps
-#####################
-D = "default"                                  #### Use the default weight matrix
-KM <- KoulLrMde(Y,X,D,"Lebesgue")              ##### Use Lebesgue measure for integration
-betahat <- KoulLrMde(Y,X,D,"Lebesgue")$betahat ##### Obtain minimum distance estimator
-resid <- KoulLrMde(Y,X,D,"Lebesgue")$residual  ##### Obtain residual
+
+D <- "default"                                 #### Use the default weight matrix
+
+Lx <- function(x){return(x)}                   ##### Define Lebesgue measure
+MDEResult <- KoulLrMde(Y,X,D, Lx)              ##### Use Lebesgue measure for the integration
+betahat <- MDEResult$betahat                   ##### Obtain minimum distance estimator
+resid <- MDEResult$residual                    ##### Obtain residual
+
+Dx <- function(x){                             ##### Define degenerate measure at 0
+       if(x==0){
+         return(1)
+       }else{
+         return(0)
+       }
+     }
+MDEResult <- KoulLrMde(Y,X,D, Dx)              ##### Use degenerate measure at 0 for the integration
+betahat <- MDEResult$betahat                   ##### Obtain minimum distance estimator
+resid <- MDEResult$residual                    ##### Obtain residual
 }
 \references{
 [1] Koul, H. L (1985). Minimum distance estimation in linear regression with unknown error distributions. Statist. Probab. Lett., 3 1-8.
@@ -45,6 +58,6 @@ resid <- KoulLrMde(Y,X,D,"Lebesgue")$residual  ##### Obtain residual
 [3] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
 }
 \seealso{
-KoulArMde() and Koul2StageMDE()
+KoulArMde() and Koul2StageMde()
 }
 

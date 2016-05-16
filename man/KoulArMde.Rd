@@ -2,33 +2,35 @@
 % Please edit documentation in R/MdeFunc.R
 \name{KoulArMde}
 \alias{KoulArMde}
-\title{Performs minimum distance estimation in autoregression model.}
+\title{Minimum distance estimation in the autoregression model of the known order.}
 \usage{
 KoulArMde(X, AR_Order, IntMeasure)
 }
 \arguments{
-\item{X}{: vector of n observed value.}
+\item{X}{- Vector of \code{n} observed values.}
 
-\item{AR_Order}{: oder of the autoregression model.}
+\item{AR_Order}{- Order of the autoregression model.}
 
-\item{IntMeasure}{- Measure used in integration. It should be either Lebesgue or degenerate.}
+\item{IntMeasure}{- Symmetric and \eqn{\sigma}-finite measure.}
 }
 \value{
-returns minimum distance estimators of the parameter in the autoregression model.
+rhohat - Minimum distance estimator of \eqn{\rho}.
+
+residual - Residuals after minimum distance estimation.
 }
 \description{
-Performs minimum distance estimation in autoregression model.
+Estimates the autoressive coefficients in the \eqn{X_t = \rho' Z_t + \xi_t } where \eqn{Z_t} is the vector of \eqn{q} observations at times \eqn{t-1,...,t-q}.
 }
 \examples{
 ##### Generate stationary AR(2) process with 10 observations
 n <- 10
-p <- 2
+q <- 2
 rho <- c(-0.2, 0.8)    ##### Generate true parameters rho = (-0.2, 0.8)'
 eps <- rnorm(n, 0,1)   ##### Generate innovations from N(0,1)
 X <- rep(0, times=n)
 for (i in 1:n){
- tempCol <- rep(0, times=p)
- for (j in 1:p){
+ tempCol <- rep(0, times=q)
+ for (j in 1:q){
    if(i-j<=0){
      tempCol[j] <- 0
    }else{
@@ -37,7 +39,22 @@ for (i in 1:n){
  }
 X[i] <- t(tempCol)\%*\% rho + eps[i]
 }
-rhohat <- KoulArMde(X, p, "Lebesgue")
+
+Lx <- function(x){return(x)}                   ##### Define Lebesgue measure
+MDEResult <- KoulArMde(X, q, Lx)               ##### Use Lebesgue measure for the integration
+rhohat <- MDEResult$rhohat                     ##### Obtain minimum distance estimator
+resid  <- MDEResult$residual                   ##### Obtain residual
+
+Dx <- function(x){                             ##### Define degenerate measure at 0
+       if(x==0){
+         return(1)
+       }else{
+         return(0)
+       }
+     }
+MDEResult <- KoulArMde(X, q, Dx)               ##### Use degenerate measure at 0 for the integration
+rhohat <- MDEResult$rhohat                     ##### Obtain minimum distance estimator
+resid <- MDEResult$residual                    ##### Obtain residual
 }
 \references{
 [1] Koul, H. L (1985). Minimum distance estimation in linear regression with unknown error distributions. Statist. Probab. Lett., 3 1-8.
@@ -47,6 +64,6 @@ rhohat <- KoulArMde(X, p, "Lebesgue")
 [3] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
 }
 \seealso{
-KoulLrMde() and Koul2StageMDE()
+KoulLrMde() and Koul2StageMde()
 }
 
