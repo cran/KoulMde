@@ -3,62 +3,52 @@
 #'Estimates both regression and autoregressive coefficients in the model \eqn{Y=X\beta + \epsilon} where \eqn{\epsilon} is autoregressive process of known order \code{q}
 #'@param Y - Vector of response variables in linear regression model.
 #'@param X - Design matrix of explanatory variables in linear regression model.
-#'@param D - Weight matrix. Dimension of D should match that of X. "default" uses XA where A=(X'X)^(-1/2).
-#'@param RegIntMeasure - Symmetric and \eqn{\sigma}-finite measure used for estimating \eqn{\beta}.  
+#'@param D - Weight Matrix. Dimension of D should match that of X. Default value is XA where A=(X'X)^(-1/2).
+#'@param RegIntMeasure - Symmetric and \eqn{\sigma}-finite measure used for estimating \eqn{\beta}. Either Lebesgue or Degenerate measure.   
 #'@param AR_Order - Order of the autoregressive error.
-#'@param ArIntMeasure - Symmetric and \eqn{\sigma}-finite measure used for estimating autoregressive coefficients of the error.
-#'@return MDE1stage - The list of the first stage minimum distance estimation result. It contains betahat1stage, residual1stage, and rhohat1stage.    
+#'@param ArIntMeasure - Symmetric and \eqn{\sigma}-finite measure used for estimating autoregressive coefficients of the error. Either Lebesgue or Degenerate measure.
+#'@return MDE1stage - The list of the first stage minimum distance estimation result. It contains betahat1stage, residual1stage, and rho1stage.    
 #'\itemize{
 #'  \item betahat1stage - The first stage minimum distance estimators of regression coefficients.
 #'  \item residual1stage - Residuals after the first stage minimum distance estimation. 
-#'  \item rhohat1stage - The first stage minimum distance estimators of autoregressive coefficients of the error.  
+#'  \item rho1stage - The first stage minimum distance estimators of autoregressive coefficients of the error.  
 #'}
-#'@return MDE2stage - The list of the second stage minimum distance estimation result. It contains betahat2stage, residual2stage, and rhohat2stage.
+#'@return MDE2stage - The list of the second stage minimum distance estimation result. It contains betahat2stage, residual2stage, and rho2stage.
 #'\itemize{
 #'  \item betahat2stage - The second stage minimum distance estimators of regression coefficients.
 #'  \item residual2stage - Residuals after the second stage minimum distance estimation. 
-#'  \item rhohat2stage - The second stage minimum distance estimators of autoregressive coefficients of the error.
+#'  \item rho2stage - The second stage minimum distance estimators of autoregressive coefficients of the error.
 #'}
 #'@examples
 #'####################
 #'n <- 10
-#'p <- 2
-#'X <- matrix(runif(n*p, 0,20), nrow=n, ncol=p)   #### Generate n-by-p design matrix X 
-#'beta <- c(-2, 1.5)                        #### Generate true beta = (-2, 1.5)' 
-#'
-#'q <- 1
-#'rho <- 0.8                            ##### Generate true parameters rho = 0.8
+#'p <- 3
+#'X <- matrix(runif(n*p, 0,50), nrow=n, ncol=p)   #### Generate n-by-p design matrix X 
+#'beta <- c(-2, 0.3, 1.5)                        #### Generate true beta = (-2, 0.3, 1.5)' 
+#'rho  <- 0.4                                    #### True rho = 0.4  
 #'eps <- vector(length=n)                        
 #'xi <- rnorm(n, 0,1)                            #### Generate innovation from N(0,1)
-#'                                               #### Generate autoregressive process of order q=1
-#'for (i in 1:n){
-#'  tempCol <- rep(0, times=q)
-#'  for (j in 1:q){
-#'    if(i-j<=0){
-#'      tempCol[j] <- 0
-#'    }else{
-#'      tempCol[j] <- eps[i-j]
-#'    }
-#'  } 
-#'  eps[i] <- t(tempCol)%*% rho + xi[i]
-#'}
-#'
+#'                                               #### Generate autoregressive process of order 1
+#'for(i in 1:n){       
+#'  if(i==1){eps[i] <- xi[i]}
+#'  else{eps[i] <- rho*eps[i-1] + xi[i]}
+#'} 
 #'Y <- X%*%beta + eps
 #'#####################
 #'D <- "default"                                  #### Use the default weight matrix 
 #'
-#'Lx <- function(x){return(x)}                    ##### Define Lebesgue measure   
-#'MDEResult <- Koul2StageMde(Y,X, "default", Lx, q, Lx)
-#'MDE1stageResult <- MDEResult$MDE1stage
-#'MDE2stageResult <- MDEResult$MDE2stage
+#'Lx <- "Lebesgue"                                ##### Define Lebesgue measure   
+#'MDEResult <- Koul2StageMde(Y,X, "default", Lx, 1, Lx)
+#'MDE1stageResult <- MDEResult[[1]]
+#'MDE2stageResult <- MDEResult[[2]]
 #'
 #'beta1 <- MDE1stageResult$betahat1stage
 #'residual1 <- MDE1stageResult$residual1stage
 #'rho1 <- MDE1stageResult$rhohat1stage
 #'
-#'beta2 <- MDE2stageResult$betahat2stage
-#'residual2 <- MDE2stageResult$residual2stage
-#'rho2 <- MDE2stageResult$rhohat2stage
+#'beta2 <- MDE2stageResult$betahat1stage
+#'residual2 <- MDE1stageResult$residual2stage
+#'rho2 <- MDE2stageResult$rhohat1stage
 
 
 
@@ -85,6 +75,7 @@ Koul2StageMde <- function(Y,X,D,RegIntMeasure, AR_Order, ArIntMeasure){
   resid1 <- MDE1Result$residual
   rho1 <- KoulArMde(resid1, AR_Order, ArIntMeasure)$rhohat
   
+  
   MDE1 <- list(betahat1stage=beta1, residual1stage=resid1, rhohat1stage=rho1)
   
   ###########################   2 stage MDE
@@ -96,7 +87,7 @@ Koul2StageMde <- function(Y,X,D,RegIntMeasure, AR_Order, ArIntMeasure){
     tempX <- rep(0, times=p)
     tempY <- 0
     for (k in 1: AR_Order){
-      tempX <- tempX + rho1[k]*Y[AR_Order+j-k, ]
+      tempX <- tempX + rho1[k]*X[AR_Order+j-k, ]
       tempY <- tempY + rho1[k]*Y[AR_Order+j-k]
     }
     Xtilde[j, ] <- X[(j+AR_Order), ] - tempX
@@ -122,7 +113,7 @@ Koul2StageMde <- function(Y,X,D,RegIntMeasure, AR_Order, ArIntMeasure){
 #' Estimates the regression coefficients in the model \eqn{Y=X\beta + \epsilon}.
 #'@param Y - Vector of response variables in linear regression model.
 #'@param X - Design matrix of explanatory variables in linear regression model.
-#'@param D - Weight matrix. Dimension of D should match that of X. "default" uses XA where A=(X'X)^(-1/2).
+#'@param D - Weight Matrix. Dimension of D should match that of X. Default value is XA where A=(X'X)^(-1/2).
 #'@param IntMeasure - Symmetric and \eqn{\sigma}-finite measure.
 #'@return betahat   - Minimum distance estimator of \eqn{\beta}. 
 #'@return residual  - Residuals after minimum distance estimation. 
@@ -137,18 +128,13 @@ Koul2StageMde <- function(Y,X,D,RegIntMeasure, AR_Order, ArIntMeasure){
 #'
 #'D <- "default"                                 #### Use the default weight matrix
 #'
-#'Lx <- function(x){return(x)}                   ##### Define Lebesgue measure 
+#'Lx <- "Lebesgue"                               ##### Define Lebesgue measure 
 #'MDEResult <- KoulLrMde(Y,X,D, Lx)              ##### Use Lebesgue measure for the integration
 #'betahat <- MDEResult$betahat                   ##### Obtain minimum distance estimator 
 #'resid <- MDEResult$residual                    ##### Obtain residual 
 #'
-#'Dx <- function(x){                             ##### Define degenerate measure at 0
-#'        if(x==0){
-#'          return(1)
-#'        }else{
-#'          return(0)
-#'        }
-#'      }
+#'Dx <- "Degenerate"                             ##### Define degenerate measure at 0
+
 #'MDEResult <- KoulLrMde(Y,X,D, Dx)              ##### Use degenerate measure at 0 for the integration
 #'betahat <- MDEResult$betahat                   ##### Obtain minimum distance estimator 
 #'resid <- MDEResult$residual                    ##### Obtain residual
@@ -172,7 +158,6 @@ KoulLrMde <- function(Y, X, D, IntMeasure){
     message("Number of arguments should be four.")
     stop()
   }
-  Hx = IntMeasure
 
   if (is.vector(X) == TRUE ){
     
@@ -240,15 +225,16 @@ KoulLrMde <- function(Y, X, D, IntMeasure){
     
   }
 
+  iter <- 1000
+  critVal <- 0.001
   
-  if (nXCol == 1){
-    BetaOLS = solve(t(X)%*%X)%*% (t(X)%*%Y)
-    Tmin <- nlm(TLRLoss(Y, X, D, Hx), BetaOLS)
-    bhat <- Tmin$estimate
+  if(IntMeasure == "Lebesgue"){
+    bhat <- EstimateBetaMDESimple(Y, X, D, iter, critVal)  
+  }else if(IntMeasure == "Degenerate"){
+    bhat <- EstimateDegenBetaMDE(Y, X, D, iter, critVal)
   }else{
-    BetaOLS <- solve(t(X)%*%X)%*% (t(X)%*%Y)
-    Tmin <- optim(BetaOLS, TLRLoss(Y, X, D, Hx))
-    bhat <- Tmin$par
+    message("Integrating measure should be either Lebesgue or Degenerate.")
+    stop()
   }
   
   if (is.vector(X) == TRUE ){
@@ -281,54 +267,507 @@ sqrtmat<-function(MAT, EXP, tol=NULL){
   return(res)
 }
 
-TLRLoss <- function(Y, X, D, Hx){
+
+
+
+TLRLossStar <- function(Y, X, Dstar){
   
   if (is.vector(X) == TRUE ){
     nXRow <- length(X)
     nXCol <- 1
-
+    
   }else {
     DimMat <- dim(X)
     LengY <- length(Y)  
     
     nXRow <- DimMat[1]
     nXCol <- DimMat[2]
-
+    
   }
-
+  
   
   Dual <- function(t){
     fval <- 0
-    for (k in 1:nXCol){
-      for (i in 1:nXRow){
-        if(nXCol == 1){xi <- X[i]} else {xi <- t(X[i,])}  
+    
+    for (i in 1:nXRow){
+      if(nXCol == 1){xi <- X[i]} else {xi <- t(X[i,])}  
+      ei <- Y[i] - xi %*% t
+
+      for(j in i:nXRow){
         
-        dik <- D[i,k]
-        ei <- Y[i] - xi %*% t
-        expr_i <- expression(Hx(ei))
-        ei <- eval(expr_i)
-        for(j in i:nXRow){
-          if(nXCol == 1){xj <- X[j]} else {xj <- t(X[j,])}
-          
-          djk <- D[j,k]
-          ej <- Y[j] - xj %*% t
-          
-          expr_j <- expression(Hx(ej))
-          ej <- eval(expr_j)
-          
-          fval <- fval + 2*dik*djk* ( max(ei, -ej)+max(-ei, ej) - max(ei, ej)-max(-ei, -ej))
-          
+        dijstar <- Dstar[i,j]
+        
+        if(nXCol == 1){xj <- X[j]} else {xj <- t(X[j,])}
+        ej <- Y[j] - xj %*% t
+        
+
+        if(j==i){
+          fval <- fval + dijstar*( abs(ei+ej) - abs(ei-ej) )
+        }else{
+          fval <- fval + 2*dijstar*( abs(ei+ej) - abs(ei-ej) )  
         }
+        
       }
-      
-      
     }
+    
+    
+    
     return(fval)
     
   }
   
   return(Dual)
 }
+
+
+GetLowerInterval <- function(E, n, SN, EN){
+  NewE <- rep(0, times=n)
+  NewE <- E[1:n]
+  StartNum <- SN
+  EndNum <- SN+(n-1)
+  lst <- list(NewE, StartNum, EndNum)
+  return(lst)
+}
+
+
+
+GetUpperInterval <- function(E, n, SN, EN){
+  Len <- length(E)
+  NewE <- rep(0, times=(Len-n) ) 
+  NewE <- E[(n+1):Len]
+  StartNum <- EN-(Len-n)+1
+  EndNum <- EN
+  
+  lst <- list(NewE, StartNum, EndNum)
+  return(lst)
+}
+
+
+
+
+
+FindPlace <- function(E, al){
+  
+  OriginalE <- E
+  LenE <- length(E)
+  
+  if(al< E[1]){
+    
+    E <- c(E[1]-1, E[1])
+    IndexSNum <- 0
+    IndexENum <- 1
+    
+    lst <- list(E, IndexSNum, IndexENum)
+    return(lst)
+    
+  }
+  if(al>E[LenE]){
+    
+    E <- c(E[LenE], E[LenE]+1)
+    
+    IndexSNum <- LenE
+    IndexENum <- LenE+1
+    
+    lst <- list(E, IndexSNum, IndexENum)
+    return(lst)
+    
+  }
+  
+  IndexSNum <- 1
+  IndexENum <- LenE
+  
+  trialnum <- floor(log(LenE, 2) )+1
+  
+  
+  for(i in 1:trialnum){
+    LenE <- floor(LenE/2)
+    
+    if(al < E[LenE]){
+      lstL <- GetLowerInterval(E,LenE, IndexSNum, IndexENum)
+      E <- lstL[[1]]
+      IndexSNum <- lstL[[2]]
+      IndexENum <- lstL[[3]]
+      LenE <- IndexENum-IndexSNum
+      
+    }
+    else{
+      lst <- GetUpperInterval(E,LenE, IndexSNum, IndexENum)
+      E <- lst[[1]]
+      IndexSNum <- lst[[2]]
+      IndexENum <- lst[[3]]
+      LenE <- IndexENum-IndexSNum
+      
+      
+      if(E[1]>al){
+        IndexENum <- IndexSNum
+        IndexSNum <- IndexSNum-1
+        
+        E <- OriginalE[IndexSNum:IndexENum]
+        break
+      }
+      
+    }
+    
+    if( (IndexENum-IndexSNum) == 1){break}
+  }  
+  lst <- list(E, IndexSNum, IndexENum)
+  return(lst)
+  
+  
+}
+
+
+
+
+
+
+FindIndex <- function(IndLen, EPlus, EMinus, PointVec, gVec, hVec){
+  
+  SIndex <- 1
+  EIndex <- IndLen
+  
+  SVal <- 0
+  EVal <- 0
+  
+  
+  OldSlopeVal <- 0
+  
+  trialnum <- ceiling(log(IndLen, 2) )+1
+  
+  for(i in 1:trialnum){
+    
+    MiddleIndex <- ceiling((SIndex+EIndex)/2)
+    
+    glst <- FindPlace(EPlus, PointVec[MiddleIndex])   
+    if(EMinus == 0){
+      SlopeVal <- gVec[( glst[[3]]) ]
+    }else{
+      hlst <- FindPlace(EMinus, PointVec[MiddleIndex])  
+      SlopeVal <- gVec[( glst[[3]]) ] - hVec[(hlst[[3]])]  
+    }
+    
+    if(SlopeVal > 0){
+      EIndex <- MiddleIndex
+      EVal <- SlopeVal
+      
+    }
+    else{
+      SIndex <- MiddleIndex
+      Sval <- SlopeVal
+    }
+    
+    if( (EIndex-SIndex) == 1){break}
+  }
+  
+  return(SIndex)
+  
+}
+
+
+GetbVec <- function(Y,X,Dstar, Xplus, Xminus, Yplus, Yminus, bVec, l){
+  
+  dimX = dim(X)
+  n=dimX[1]
+  p=dimX[2]
+  
+  PMLen=0
+  MMLen=0
+  
+  PM = matrix(rep(0, times=n^2*3), nrow=n^2, ncol=3)
+  MM = matrix(rep(0, times=n^2*3), nrow=n^2, ncol=3)
+  
+  LossVal = TLRLossStar(Y,X,Dstar)(bVec)
+  
+  for(i in 1:n){
+    for(j in i:n){
+      if(Xplus[[i]][[j]][l] != 0){
+        PMLen=PMLen+1
+        PM[PMLen,1] = abs( Xplus[[i]][[j]][l] )
+        PM[PMLen,2] = Dstar[i,j]
+        PM[PMLen,3] = (Yplus[i,j] - t(bVec)%*% Xplus[[i]][[j]] + 
+                         Xplus[[i]][[j]][l]*bVec[l])/Xplus[[i]][[j]][l]
+      }
+      if(Xminus[[i]][[j]][l] != 0){
+        MMLen=MMLen+1
+        MM[MMLen,1] = abs(Xminus[[i]][[j]][l])
+        MM[MMLen,2] = Dstar[i,j]
+        MM[MMLen,3] = (Yminus[i,j] - t(bVec)%*% Xminus[[i]][[j]] + 
+                         Xminus[[i]][[j]][l]*bVec[l])/Xminus[[i]][[j]][l]
+      }
+      
+    }
+  }
+  PMat = PM[1:PMLen,]
+  if(MMLen != 0){MMat = MM[1:MMLen,]}
+  
+  E = rep(0, times=(PMLen+MMLen))
+  E[1:PMLen] = PMat[1:PMLen,3]
+  if(MMLen != 0){E[ (PMLen+1) : (PMLen+MMLen) ] = MMat[1:MMLen,3]}
+  
+  
+  SortedE = sort(E)
+  LenE = length(E)
+  
+  PointVec = rep(0, times = (LenE+1) )
+  
+  for(i in 1: (LenE+1)){
+    
+    if(i==1){PointVec[i] = SortedE[1]-1}
+    else if(i== (LenE+1)){PointVec[i] = SortedE[LenE]+1}
+    else{PointVec[i] = ( SortedE[i-1]+SortedE[i])/2 }
+  }
+  
+  PMat = PMat[order(PMat[,3]),]  
+  EPlus = PMat[,3]
+  if(MMLen != 0){
+    MMat = MMat[order(MMat[,3]),]  
+    EMinus = MMat[,3]
+  }else{
+    EMinus=0
+  }
+  
+  gVec = rep(0,times=(PMLen+1))
+  hVec = rep(0,times=(MMLen+1))
+  
+  for(i in 1:(PMLen+1)){
+    if(i==1){gVec[i]= -(t(PMat[,1])%*% (PMat[,2])  ) }
+    else{gVec[i]=gVec[i-1]+2*PMat[(i-1),1]*PMat[(i-1),2]}
+  }
+  if(MMLen != 0){
+    for(i in 1:(MMLen+1)){
+      if(i==1){hVec[i]= -(t(MMat[,1])%*% (MMat[,2])  ) }
+      else{hVec[i]=hVec[i-1]+2*MMat[(i-1),1]*MMat[(i-1),2]}
+    }
+  }  
+  SlopeVec = rep(0,times = (LenE+1))
+  
+  ########
+  ValVec = rep(0,times = (LenE+1))
+  ##############  
+  
+  
+  TriedbVec = bVec
+  nstar = FindIndex((LenE+1), EPlus, EMinus, PointVec, gVec, hVec)
+  if( nstar > 0){
+    TriedbVec[l] = SortedE[nstar]
+    TriedLossVal = TLRLossStar(Y,X,Dstar)(TriedbVec)
+    
+    Lmat2Val = 0
+    if(TriedLossVal < LossVal ){ 
+      
+      Lmat2Val = TriedLossVal-LossVal
+      LossVal = TriedLossVal
+      bVec=TriedbVec
+    }
+  }        
+  
+  lst=list()
+  lst[[1]] = bVec
+  lst[[2]] = Lmat2Val
+  return(lst)
+  
+  
+}
+
+EstimateBetaMDESimple <- function(Y, X, D, iter, critVal){
+  dimX = dim(X)
+  n = dimX[1]
+  p = dimX[2]
+  
+
+  Dstar = matrix( rep(0,times=n*n), nrow=n, ncol=n )
+  Yplus = matrix( rep(0,times=n*n), nrow=n, ncol=n )
+  Yminus = matrix( rep(0,times=n*n), nrow=n, ncol=n )
+  
+  for(i in 1:n){
+    for(j in 1:n){
+      SumD = 0
+      for(k in 1:p){
+        SumD = SumD+D[i,k]*D[j,k]
+      }
+      Dstar[i,j] = SumD
+      Yplus[i,j] = Y[i]+Y[j]
+      Yminus[i,j] = Y[i]-Y[j]
+      
+    }
+  }
+  
+  Xplus = list()
+  Xminus = list()
+  
+  for(i in 1:n){
+    templst = list()
+    temmlst = list()
+    for(j in 1:n){
+      templst[[j]]=X[i,]+X[j,]
+      temmlst[[j]]=X[i,]-X[j,]
+    }
+    Xplus[[i]]=templst
+    Xminus[[i]]=temmlst
+    
+  }
+  
+  init_beta = solve(t(X)%*%X)%*%(t(X)%*%Y)
+  bVec = init_beta
+  
+  LMat = matrix(rep(0, times=p*2), nrow=p, ncol=2)
+  for(i in 1:p){LMat[i,1]=i}
+  
+  for(ith in 1:iter){
+    OldbVec = bVec
+    
+    if(ith == 1){
+      
+      for(lprime in 1 : p){
+        l = LMat[lprime,1]
+        
+        ResultLst =  GetbVec(Y,X,Dstar, Xplus, Xminus, Yplus, Yminus, bVec, l) 
+        bVec = ResultLst[[1]]
+        LMat[l,2] = ResultLst[[2]]
+      }
+    }else{
+      l = LMat[1,1]
+      
+      ResultLst =  GetbVec(Y,X,Dstar, Xplus, Xminus, Yplus, Yminus, bVec, l) 
+      bVec = ResultLst[[1]]
+      LMat[1,2] = ResultLst[[2]] 
+    }
+    
+    
+    LMat=  LMat[order(LMat[,2]),]
+    
+    normdiff = norm( bVec-OldbVec , type="2")
+    
+    if(normdiff < critVal){break}
+    
+  }
+  
+  return(bVec)
+  
+}
+
+
+
+#################################
+GetDegenbVec <- function(Y,X, D, bVec, l){
+  
+  dimX = dim(X)
+  n=dimX[1]
+  p=dimX[2]
+  
+  LossVal = TLRLossDegen(Y,X,D)(bVec)
+  nElLen = 0
+  ElMat = matrix(rep(0, times=(2*n)), nrow=n, ncol=2 )
+  
+  for(i in 1:n){
+    xil = X[i,l]
+    if(xil != 0){
+      nElLen = nElLen+1
+      ElMat[nElLen,1]=nElLen
+      ElMat[nElLen,2]= (Y[i]- X[i,]%*%bVec + xil*bVec[l])/xil
+    }
+  }
+  TriedbVec = bVec
+  
+  TriedLossVal = LossVal
+  for(i in 1:nElLen){
+    TriedbVec[l] = ElMat[i,2]
+    TestVal = TLRLossDegen(Y,X,D)(TriedbVec)
+    
+    if( TestVal < TriedLossVal ){
+      bVec[l] = ElMat[i,2]
+      TriedLossVal = TestVal
+    }
+    
+  }
+  
+  return(bVec)
+}
+
+
+
+EstimateDegenBetaMDE <- function(Y, X, D, iter, critVal){
+  
+  dimX = dim(X)
+  n = dimX[1]
+  p = dimX[2]
+  
+  tempA = (t(X)%*%X)
+  A = sqrtmat(tempA, -0.5)
+  D = X%*%A
+  
+  
+  init_beta = solve(t(X)%*%X)%*%(t(X)%*%Y)
+  bVec = init_beta
+  
+  for(ith in 1:iter){
+    OldbVec = bVec
+    for(l in 1:p){
+      bVec =  GetDegenbVec(Y,X, D, bVec, l) 
+    }    
+    
+    normdiff = norm( bVec-OldbVec , type="2")
+    
+    if(normdiff < critVal){break}   
+    
+  }
+  
+  
+  return(bVec)
+  
+} 
+
+
+TLRLossDegen <- function(Y, X, D){
+  
+  if (is.vector(X) == TRUE ){
+    nXRow <- length(X)
+    nXCol <- 1
+    
+  }else {
+    DimMat <- dim(X)
+    LengY <- length(Y)  
+    
+    nXRow <- DimMat[1]
+    nXCol <- DimMat[2]
+    
+  }
+  
+  p <- nXCol
+  
+  Dual <- function(t){
+    fval <- 0
+    
+    for(k in 1:p){
+      tempVal <- 0
+      for (i in 1:nXRow){
+        if(nXCol == 1){xi <- X[i]} else {xi <- t(X[i,])}  
+        ei <- Y[i] - xi %*% t
+        if(ei > 0){
+          ei <- 1
+        }else if(ei == 0){
+          ei <- 0
+        }else{ 
+          ei <- (-1) 
+        } 
+        tempVal <- tempVal + D[i,k]*ei 
+      }
+      fval <- fval + tempVal^2
+    }
+    
+    return(fval)
+    
+  }
+  
+  return(Dual)
+}
+
+
+
+
+################################
+
+
 
 
 
@@ -359,18 +798,12 @@ TLRLoss <- function(Y, X, D, Hx){
 #'X[i] <- t(tempCol)%*% rho + eps[i]
 #'}
 #'
-#'Lx <- function(x){return(x)}                   ##### Define Lebesgue measure 
+#'Lx <- "Lebesgue"                               ##### Define Lebesgue measure 
 #'MDEResult <- KoulArMde(X, q, Lx)               ##### Use Lebesgue measure for the integration
 #'rhohat <- MDEResult$rhohat                     ##### Obtain minimum distance estimator
 #'resid  <- MDEResult$residual                   ##### Obtain residual
 #'
-#'Dx <- function(x){                             ##### Define degenerate measure at 0
-#'        if(x==0){
-#'          return(1)
-#'        }else{
-#'          return(0)
-#'        }
-#'      }
+#'Dx <- "Degenerate"                             ##### Define degenerate measure at 0
 #'MDEResult <- KoulArMde(X, q, Dx)               ##### Use degenerate measure at 0 for the integration
 #'rhohat <- MDEResult$rhohat                     ##### Obtain minimum distance estimator 
 #'resid <- MDEResult$residual                    ##### Obtain residual
@@ -393,10 +826,15 @@ TLRLoss <- function(Y, X, D, Hx){
 KoulArMde <- function(X, AR_Order, IntMeasure){
   
   Hx = IntMeasure
-
+  
+  if ( (Hx != "Lebesgue") && (Hx != "Degenerate") ){
+    message("Integrating measure should be either Lebesgue or Degenerate.")
+    stop()
+  }
+  
   nLength <- length(X)
   
-  if(nLength<=AR_Order){
+  if(nLength <= AR_Order){
     message("Length of vector X should be greater than AR_Order.")
     stop()
   }
@@ -424,7 +862,6 @@ KoulArMde <- function(X, AR_Order, IntMeasure){
   ubVec <- rep(1, times=AR_Order)
   
   Tmin <- nlminb(rho0, TARLoss(X, AR_Order, Hx), lower=lbVec, upper=ubVec)
-
   rho_hat <- Tmin$par
   resid <- Xres - Xexp%*% rho_hat
   
@@ -458,9 +895,8 @@ TARLoss <- function(X, AR_Order, Hx){
           
         }
         ei <- X[i] - t(r)%*%tempColi 
-        expr_i <- expression(Hx(ei))
-        ei <- eval(expr_i)
-        
+        if(Hx == "Degenerate"){ei <- abs(ei)}
+
         
         for(j in i:nLength){
           if(j<=k){
@@ -479,15 +915,21 @@ TARLoss <- function(X, AR_Order, Hx){
             
           }
           ej <- X[j] - t(r)%*%tempColj
-          expr_j <- expression(Hx(ej))
-          ej <- eval(expr_j)
+          if(Hx == "Degenerate"){ej <- abs(ej)}
+
+          if(j == i){
+            fac=1
+          }else{
+            fac=2
+          }
           
-          fval <- fval + 2*dik*djk* ( max(ei, -ej)+max(-ei, ej) - max(ei, ej)-max(-ei, -ej))
+          fval <- fval + fac*dik*djk* ( max(ei, -ej)+max(-ei, ej) - max(ei, ej)-max(-ei, -ej))
         }
         
       }      
 
     }
+    
     return(fval)
     
   }
