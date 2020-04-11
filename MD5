@@ -1,10 +1,11 @@
-bdb21b2bd155ce1c0e22efbcb535c4f7 *DESCRIPTION
-68a38a98e176009ff92aa42c67fb3336 *NAMESPACE
-beefdd1a6cd8ad4355e3216acffe5586 *R/MdeFunc31.R
+215f40a8f2a9fb4a1c0f237fb64b1884 *DESCRIPTION
+a57e7ce4a1cba00099729106cd1f5473 *NAMESPACE
+a7f892d7218e5b57cc87ed949c8cfc5f *R/MdeFunc31.R
 304bc5708ada3b850e9ab84432466c97 *R/RcppExports.R
-92350879a7b9ff463ea65b19641977cb *man/Koul2StageMde.Rd
-cc3ee668e2a31f2d3b20deeea3e4caff *man/KoulArMde.Rd
-6697cc7c16e330c1f1f7a7ec323e6300 *man/KoulLrMde.Rd
+0dfdae78589c0290b0a0df0e7e06cc6e *man/CheckNonNumeric.Rd
+12138079187d0b4465909b6ce3518690 *man/Koul2StageMde.Rd
+784fe150d9df46d03173a252ac69877f *man/KoulArMde.Rd
+32483150016fb25f4d109aa696b300cf *man/KoulLrMde.Rd
 734dac468b2b1776140cf5255d9f3ea3 *src/FuncLib.cpp
 2a6f9e9e044a78154d3cfda5936d6f48 *src/Makevars.win
 9784f5b35051483c8d72c035dadae3fa *src/RcppExports.cpp

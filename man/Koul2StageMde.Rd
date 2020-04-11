@@ -4,8 +4,16 @@
 \alias{Koul2StageMde}
 \title{Two-stage minimum distance estimation in linear regression model with autoregressive error.}
 \usage{
-Koul2StageMde(Y, X, D, b0, RegIntMeasure, AR_Order, ArIntMeasure,
-  TuningConst = 1.345)
+Koul2StageMde(
+  Y,
+  X,
+  D,
+  b0,
+  RegIntMeasure,
+  AR_Order,
+  ArIntMeasure,
+  TuningConst = 1.345
+)
 }
 \arguments{
 \item{Y}{- Vector of response variables in linear regression model.}

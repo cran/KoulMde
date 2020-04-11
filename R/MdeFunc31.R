@@ -54,11 +54,13 @@
 #'@references
 #'[1] Kim, J. (2018). A fast algorithm for the coordinate-wise minimum distance estimation. J. Stat. Comput. Simul., 3: 482 - 497
 #'@references
-#'[2] Koul, H. L (1985). Minimum distance estimation in linear regression with unknown error distributions. Statist. Probab. Lett., 3: 1-8.
+#'[2] Kim, J. (2020). Minimum distance estimation in linear regression model with strong mixing errors. Commun. Stat. - Theory Methods., 49(6): 1475 - 1494
 #'@references
-#'[3] Koul, H. L (1986). Minimum distance estimation and goodness-of-fit tests in first-order autoregression. Ann. Statist., 14 1194-1213.
+#'[3] Koul, H. L (1985). Minimum distance estimation in linear regression with unknown error distributions. Statist. Probab. Lett., 3: 1-8.
 #'@references
-#'[4] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
+#'[4] Koul, H. L (1986). Minimum distance estimation and goodness-of-fit tests in first-order autoregression. Ann. Statist., 14 1194-1213.
+#'@references
+#'[5] Koul, H. L (2002). Weighted empirical process in nonlinear dynamic models. Springer, Berlin, Vol. 166
 #'@export
 #'@seealso KoulArMde() and Koul2StageMde()
 #'@importFrom Rcpp evalCpp
@@ -513,7 +515,57 @@ Koul2StageMde <- function(Y,X,D, b0, RegIntMeasure, AR_Order, ArIntMeasure, Tuni
 
 
 
+#' Detecting Non-numeric Values.
+#'
+#' Check whether or not an input matrix includes any non-numeric values (NA, NULL, "", character, etc) before being used for training. If any non-numeric values exist, then TrainBuddle() or FetchBuddle() will return non-numeric results.
+#'@param X an n-by-p matrix.
+#'
+#'@return A list of (n+1) values where n is the number of non-numeric values. The first element of the list is n, and all other elements are entries of X where non-numeric values occur. For example, when the (1,1)th and the (2,3)th entries of a 5-by-5 matrix X are non-numeric, then the list returned by CheckNonNumeric() will contain 2, (1,1), and (2,3).
+#'
+#'@examples
+#'
+#'n = 5;
+#'p = 5;
+#'X = matrix(0, n, p)       #### Generate a 5-by-5 matrix which includes two NA's.
+#'X[1,1] = NA
+#'X[2,3] = NA
+#'
+#'lst = CheckNonNumeric(X)
+#'
+#'lst
+#'
+#'@export
 
+
+CheckNonNumeric = function(X){
+
+  dimm = dim(X)
+  n = dimm[1]
+  p = dimm[2]
+
+
+  nInc = 0
+  lst = list()
+  nIndex=2
+
+  for(i in 1:n){
+
+    for(j in 1:p){
+
+      val = X[i, j]
+      if((is.na(val)==TRUE) || is.null(val)==TRUE || is.numeric(val)==FALSE){
+        nInc = nInc+1
+        lst[[nIndex]] = c(i,j)
+        nIndex=nIndex+1
+      }
+    }
+  }
+
+  lst[[1]] = nInc
+
+  return(lst)
+
+}
 
 
 
