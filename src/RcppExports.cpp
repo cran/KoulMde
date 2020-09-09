@@ -24,9 +24,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cppGet_Estimated_Img
+List cppGet_Estimated_Img(arma::mat zMat, double p1, double p2);
+RcppExport SEXP _KoulMde_cppGet_Estimated_Img(SEXP zMatSEXP, SEXP p1SEXP, SEXP p2SEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type zMat(zMatSEXP);
+    Rcpp::traits::input_parameter< double >::type p1(p1SEXP);
+    Rcpp::traits::input_parameter< double >::type p2(p2SEXP);
+    rcpp_result_gen = Rcpp::wrap(cppGet_Estimated_Img(zMat, p1, p2));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_KoulMde_EstimateBetaMDESimple", (DL_FUNC) &_KoulMde_EstimateBetaMDESimple, 8},
+    {"_KoulMde_cppGet_Estimated_Img", (DL_FUNC) &_KoulMde_cppGet_Estimated_Img, 3},
     {NULL, NULL, 0}
 };
 

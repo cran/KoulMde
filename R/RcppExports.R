@@ -6,3 +6,8 @@ EstimateBetaMDESimple <- function(Y, X, D, b0, iter, critVal, type, HuberC) {
     .Call('_KoulMde_EstimateBetaMDESimple', PACKAGE = 'KoulMde', Y, X, D, b0, iter, critVal, type, HuberC)
 }
 
+#' @keywords internal
+cppGet_Estimated_Img <- function(zMat, p1, p2) {
+    .Call('_KoulMde_cppGet_Estimated_Img', PACKAGE = 'KoulMde', zMat, p1, p2)
+}
+
