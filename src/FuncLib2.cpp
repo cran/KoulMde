@@ -474,20 +474,16 @@ double NetGatin_Of_S1_k(arma::uword h, arma::uvec cVec, arma::umat S1, arma::uma
     yi = S1k(i-1,1);
     G1[i-1] = zMat(xi-1,yi-1);
 
-    //printf("i, xi yi is %d %d %d\n", i, S1k(i-1,0), S1k(i-1,1));
-
+    
   }
 
 
-  //printf("Now xi yi is %d %d\n", S2k(n22-1,0), S2k(n22-1,1));
-
+  
   for(int i=1;i<=n22;i++){
-    //printf("i is %d\n", i);
     xi = S2k(i-1,0);
     yi = S2k(i-1,1);
 
-    //printf("i xi yi is %d %d %d\n", i,  xi, yi);
-
+    
     G2[i-1] = zMat(xi-1,yi-1);
 
   }
@@ -825,7 +821,6 @@ arma::umat Trade_Between_S1_and_S2(arma::umat S1, arma::umat S2, int n1, int n2,
 
 
 
-  //printf("Here, %d, %d\n", n1k, n2k);
   ////////////////////////////// S2k ===> S1k part
 
 
@@ -838,7 +833,7 @@ arma::umat Trade_Between_S1_and_S2(arma::umat S1, arma::umat S2, int n1, int n2,
     if(n1k==0){  /////  S2k=TotalS,  S1k=0
       ListVec2_to_1 = Make_Transfer_List_Zero(S2k, zMat, p2, p1);
 
-      //printf("Part-2");
+      
 
       if(ListVec2_to_1[0]!=0){
         nLen = ListVec2_to_1.n_elem;
@@ -852,7 +847,7 @@ arma::umat Trade_Between_S1_and_S2(arma::umat S1, arma::umat S2, int n1, int n2,
 
         }
 
-        //printf("Part-1");
+        
 
         S1T1 = tmpS1T1;
         nS1T1=nLen;
@@ -863,7 +858,6 @@ arma::umat Trade_Between_S1_and_S2(arma::umat S1, arma::umat S2, int n1, int n2,
 
         }else{
 
-          //printf("Part0");
           ////// S2k=TotalS, S1k=0
           ////// S1T1!=0, S2T2!=0
           arma::umat Orig_S2T2 = cppDiffMatrix(S2k, ListVec2_to_1);
@@ -873,8 +867,7 @@ arma::umat Trade_Between_S1_and_S2(arma::umat S1, arma::umat S2, int n1, int n2,
         }
 
 
-        //printf("Part1");
-
+        
 
 
       }else{
@@ -886,8 +879,7 @@ arma::umat Trade_Between_S1_and_S2(arma::umat S1, arma::umat S2, int n1, int n2,
         out(n+1,0)=0;
         out(n+1,1)=0;
 
-        //printf("Part2");
-
+        
         return out;
       }
 
@@ -895,12 +887,10 @@ arma::umat Trade_Between_S1_and_S2(arma::umat S1, arma::umat S2, int n1, int n2,
 
     }else{     /////////////// n2k!=0 n1k!=0, ===>  S1k != 0, S2k !=0
 
-      //printf("There");
-
+      
       ListVec2_to_1 = Make_Transfer_List(S2k, S1k, zMat, p2, p1);
 
-      //printf("There2");
-
+      
       if(ListVec2_to_1[0]!=0){
         nLen = ListVec2_to_1.n_elem;
         nT2=nLen;
@@ -932,8 +922,7 @@ arma::umat Trade_Between_S1_and_S2(arma::umat S1, arma::umat S2, int n1, int n2,
           nS2T2 = n2k-nLen;
         }
 
-        //printf("Part3");
-
+        
 
       }else{
 
@@ -960,8 +949,7 @@ arma::umat Trade_Between_S1_and_S2(arma::umat S1, arma::umat S2, int n1, int n2,
     nS1T1=n1k;
   }
 
-  //printf("Part4");
-
+  
   out.rows(0, nS1T1-1)=S1T1;
   out.rows(nS1T1, n-1)=S2T2;
   out(n,0)=nS1T1;
@@ -969,8 +957,7 @@ arma::umat Trade_Between_S1_and_S2(arma::umat S1, arma::umat S2, int n1, int n2,
   out(n+1,0)=nT1;
   out(n+1,1)=nT2;
 
-  //printf("Part5");
-
+  
   return out;
 
 
@@ -1045,7 +1032,7 @@ List cppGet_Estimated_Img(arma::mat zMat, double p1, double p2){
 
   int Totaln=nx*ny;
 
-  int n1 = floor(Totaln/2) ;
+  int n1 = std::floor(Totaln/2) ;
   int bFix=1;
 
   List lst = cppGenerateS12(nx, ny, n1, bFix);

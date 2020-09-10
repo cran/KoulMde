@@ -1,7 +1,7 @@
 Package: KoulMde
 Title: Koul's Minimum Distance Estimation in Regression and Image
         Segmentation Problems
-Version: 3.2.0
+Version: 3.2.1
 Author: Jiwoong Kim <jwboys26 at gmail.com>
 Maintainer: Jiwoong Kim <jwboys26@gmail.com>
 Description: Many methods are developed to deal with two major statistical problems: image segmentation 
@@ -47,6 +47,6 @@ Imports: Rcpp (>= 0.12.7), expm
 LinkingTo: Rcpp, RcppArmadillo
 RoxygenNote: 7.1.1
 NeedsCompilation: yes
-Packaged: 2020-09-08 13:01:15 UTC; Jason
+Packaged: 2020-09-09 21:03:30 UTC; Jason
 Repository: CRAN
-Date/Publication: 2020-09-09 06:20:12 UTC
+Date/Publication: 2020-09-10 06:30:26 UTC
